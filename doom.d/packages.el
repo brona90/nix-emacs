@@ -1,50 +1,36 @@
 ;; -*- no-byte-compile: t; -*-
-;;; $DOOMDIR/packages.el
 
-;; To install a package with Doom you must declare them here and run 'doom sync'
-;; on the command line, then restart Emacs for the changes to take effect -- or
-;; use 'M-x doom/reload'.
+;;; Development
+(package! nix-mode)              ; Nix language support
+(package! magit)                 ; Git porcelain (usually already in Doom)
+(package! git-gutter)            ; Show git diff in gutter
+(package! forge)                 ; GitHub/GitLab integration for magit
 
+;;; Productivity
+(package! org-roam)              ; Zettelkasten note-taking
+(package! org-journal)           ; Daily journaling
+(package! deft)                  ; Quick note search
+(package! pdf-tools)             ; Better PDF viewing
 
-;; To install SOME-PACKAGE from MELPA, ELPA or emacsmirror:
-;(package! some-package)
+;;; Editing enhancements
+(package! multiple-cursors)      ; Edit multiple locations at once
+(package! expand-region)         ; Smart region selection
+(package! string-inflection)     ; Convert between snake_case, camelCase, etc.
+(package! undo-tree)             ; Visual undo history
 
-;; To install a package directly from a remote git repo, you must specify a
-;; `:recipe'. You'll find documentation on what `:recipe' accepts here:
-;; https://github.com/radian-software/straight.el#the-recipe-format
-;(package! another-package
-;  :recipe (:host github :repo "username/repo"))
+;;; Language support
+(package! yaml-mode)             ; YAML files
+(package! toml-mode)             ; TOML files
+(package! markdown-mode)         ; Markdown
+(package! web-mode)              ; HTML/CSS/JS
+(package! dockerfile-mode)       ; Dockerfiles
 
-;; If the package you are trying to install does not contain a PACKAGENAME.el
-;; file, or is located in a subdirectory of the repo, you'll need to specify
-;; `:files' in the `:recipe':
-;(package! this-package
-;  :recipe (:host github :repo "username/repo"
-;           :files ("some-file.el" "src/lisp/*.el")))
+;;; Themes and UI
+(package! doom-themes)           ; Already included, but good to list
+(package! all-the-icons)         ; Icons (already in Doom)
+(package! rainbow-delimiters)    ; Color-coded parentheses
 
-;; If you'd like to disable a package included with Doom, you can do so here
-;; with the `:disable' property:
-;(package! builtin-package :disable t)
-
-;; You can override the recipe of a built in package without having to specify
-;; all the properties for `:recipe'. These will inherit the rest of its recipe
-;; from Doom or MELPA/ELPA/Emacsmirror:
-;(package! builtin-package :recipe (:nonrecursive t))
-;(package! builtin-package-2 :recipe (:repo "myfork/package"))
-
-;; Specify a `:branch' to install a package from a particular branch or tag.
-;; This is required for some packages whose default branch isn't 'master' (which
-;; our package manager can't deal with; see radian-software/straight.el#279)
-;(package! builtin-package :recipe (:branch "develop"))
-
-;; Use `:pin' to specify a particular commit to install.
-;(package! builtin-package :pin "1a2b3c4d5e")
-
-
-;; Doom's packages are pinned to a specific commit and updated from release to
-;; release. The `unpin!' macro allows you to unpin single packages...
-;(unpin! pinned-package)
-;; ...or multiple packages
-;(unpin! pinned-package another-pinned-package)
-;; ...Or *all* packages (NOT RECOMMENDED; will likely break things)
-;(unpin! t)
+;;; Utilities
+(package! which-key)             ; Show available keybindings (already in Doom)
+(package! company)               ; Completion framework (already in Doom)
+(package! projectile)            ; Project management (already in Doom)
