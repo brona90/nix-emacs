@@ -1,59 +1,89 @@
 {
-  description = "Gregory's Doom Emacs via Nix – with Nerd Fonts bundled";
+  description = "Gregory's Doom Emacs via Nix – bundled Nerd Fonts (JetBrainsMono)";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+
     doom-emacs = {
       url = "github:marienz/nix-doom-emacs-unstraightened";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
     doom-config = {
-      url = "path:./doom.d";  # config files directly inside
+      url = "path:./doom.d";
       flake = false;
     };
   };
 
-  outputs = { self, nixpkgs, doom-emacs, doom-config, ... }: let
-    system = "x86_64-linux";
+  outputs = { self, nixpkgs, doom-emacs, doom-config, ... }:
+    let
+      system = "x86_64-linux";
 
-    pkgs = import nixpkgs {
-      inherit system;
-      overlays = [ doom-emacs.overlays.default ];
-    };
+      pkgs = import nixpkgs {
+        inherit system;
+        overlays = [ doom-emacs.overlays.default ];
+      };
 
-    myDoomEmacs = pkgs.emacsWithDoom {
-      doomDir = doom-config;
-      doomLocalDir = "~/.local/share/doom";
-    };
+      # Base Doom Emacs with your config
+      myDoomEmacs = pkgs.emacsWithDoom {
+        doomDir = doom-config;
+        # REQUIRED writable location (will be created on first run)
+        doomLocalDir = "~/.local/share/nix-doom-local";
+      };
 
-    # Your chosen Nerd Fonts (add/remove as you like)
-    myNerdFonts = pkgs.nerdfonts.override {
-      fonts = [ "JetBrainsMono" "FiraCode" "Hack" "Meslo" ];
-    };
+      # Correct access in 2026 nixpkgs-unstable: kebab-case name
+      bundledNerdFonts = pkgs.nerd-fonts.jetbrains-mono;
 
-    # Critical for nerd-icons package
-    mySymbolsFont = pkgs.nerdfonts.symbols-only;
+      # Wrapped Doom Emacs with bundled fonts
+      doomWithBundledFonts = pkgs.stdenv.mkDerivation {
+        name = "doom-emacs-with-nerd-fonts";
 
-  in {
-    # Main Doom Emacs package & app
-    packages.${system} = {
-      default = myDoomEmacs;
+        nativeBuildInputs = [ pkgs.makeWrapper ];
 
-      # Fonts exposed as separate packages for easy consumption
-      nerdFonts = myNerdFonts;
-      nerdSymbols = mySymbolsFont;
-      allNerdFonts = pkgs.symlinkJoin {
-        name = "all-nerd-fonts";
-        paths = [ myNerdFonts mySymbolsFont ];
+        dontUnpack = true;
+        dontBuild = true;
+
+        installPhase = ''
+          runHook preInstall
+
+          mkdir -p $out/bin
+
+          # Main emacs wrapper – inject fonts via XDG_DATA_DIRS + fontconfig
+          makeWrapper ${myDoomEmacs}/bin/emacs $out/bin/emacs \
+            --prefix XDG_DATA_DIRS : "${bundledNerdFonts}/share" \
+            --prefix XDG_DATA_DIRS : "${bundledNerdFonts}/share/fonts" \
+            --set-default FONTCONFIG_PATH ${pkgs.fontconfig}/etc/fonts
+
+          # Wrap emacsclient too (highly recommended)
+          makeWrapper ${myDoomEmacs}/bin/emacsclient $out/bin/emacsclient \
+            --inherit-argv0
+
+          runHook postInstall
+        '';
+
+        meta = {
+          description = "Doom Emacs with bundled JetBrainsMono Nerd Font";
+          mainProgram = "emacs";
+        };
+      };
+
+    in
+    {
+      packages.${system} = {
+        default = myDoomEmacs;
+        doom-with-fonts = doomWithBundledFonts;
+      };
+
+      apps.${system} = {
+        default = {
+          type = "app";
+          program = "${myDoomEmacs}/bin/emacs";
+        };
+
+        doom-with-fonts = {
+          type = "app";
+          program = "${doomWithBundledFonts}/bin/emacs";
+        };
       };
     };
-
-    apps.${system} = {
-      emacs = {
-        type = "app";
-        program = "${myDoomEmacs}/bin/emacs";
-      };
-      default = self.apps.${system}.emacs;
-    };
-  };
 }
