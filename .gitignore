@@ -1,0 +1,36 @@
+# Nix build artifacts
+result
+result-*
+*.drv
+/nix/
+
+# Emacs / Doom temporary files
+*~
+.#*
+.DS_Store
+.dir-locals.el
+.projectile
+.tramp
+*.elc
+flymake_*
+eln-cache/
+straight/
+.doctor/
+.local/
+.cache/
+.trash/
+backups/
+autosaves/
+undo-tree/
+sessions/
+# Doom-specific
+doom.d/.local/
+doom.d/.local/share/doom/
+doom.d/.local/state/doom/
+doom.d/.local/cache/doom/
+
+# Lock files (optional - keep if you want reproducible builds, remove if you want fresh pulls)
+flake.lock
+
+# Logs and diagnostics
+*.log
