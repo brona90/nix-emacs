@@ -34,3 +34,6 @@ flake.lock
 
 # Logs and diagnostics
 *.log
+
+#
+.vscode
