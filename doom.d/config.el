@@ -8,10 +8,16 @@
 (setq user-full-name "Gregory Foster"
       user-mail-address "brona90@gmail.com")
 
-(setq doom-font (font-spec :family "VictorMono Nerd Font" :size 14))
+(setq doom-font (font-spec :family "VictorMono Nerd Font" :size 18))
 
 ;; For nerd-icons symbols specifically
 (setq nerd-icons-font-family "Symbols Nerd Font Mono")
+
+(custom-set-faces!
+  '(font-lock-comment-face :slant italic)
+  '(font-lock-keyword-face :slant italic)
+  '(font-lock-string-face :slant italic)
+  '(font-lock-doc-face :slant italic))
 
 ;; If you or Emacs can't find your font, use 'M-x describe-font' to look them
 ;; up, `M-x eval-region' to execute elisp code, and 'M-x doom/reload-font' to
@@ -21,7 +27,7 @@
 ;; There are two ways to load a theme. Both assume the theme is installed and
 ;; available. You can either set `doom-theme' or manually load a theme with the
 ;; `load-theme' function. This is the default:
-(setq doom-theme 'doom-one)
+(setq doom-theme 'doom-gruvbox)
 
 ;; This determines the style of line numbers in effect. If set to `nil', line
 ;; numbers are disabled. For relative line numbers, set this to `relative'.
