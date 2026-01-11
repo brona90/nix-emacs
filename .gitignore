@@ -29,9 +29,6 @@ doom.d/.local/share/doom/
 doom.d/.local/state/doom/
 doom.d/.local/cache/doom/
 
-# Lock files (optional - keep if you want reproducible builds, remove if you want fresh pulls)
-flake.lock
-
 # Logs and diagnostics
 *.log
 
