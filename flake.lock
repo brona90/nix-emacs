@@ -1,17 +1,5 @@
 {
   "nodes": {
-    "doom-config": {
-      "flake": false,
-      "locked": {
-        "path": "./doom.d",
-        "type": "path"
-      },
-      "original": {
-        "path": "./doom.d",
-        "type": "path"
-      },
-      "parent": []
-    },
     "doom-emacs": {
       "inputs": {
         "doomemacs": "doomemacs",
@@ -92,7 +80,6 @@
     },
     "root": {
       "inputs": {
-        "doom-config": "doom-config",
         "doom-emacs": "doom-emacs",
         "nixpkgs": "nixpkgs"
       }
