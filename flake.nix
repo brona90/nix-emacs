@@ -8,14 +8,9 @@
       url = "github:marienz/nix-doom-emacs-unstraightened";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
-    doom-config = {
-      url = "path:./doom.d";
-      flake = false;
-    };
   };
 
-  outputs = { self, nixpkgs, doom-emacs, doom-config, ... }:
+  outputs = { self, nixpkgs, doom-emacs, ... }:
     let
       system = "x86_64-linux";
 
@@ -24,8 +19,18 @@
         overlays = [ doom-emacs.overlays.default ];
       };
 
+      # Copy doom.d to the Nix store instead of using a flake input
+      doomConfig = pkgs.stdenv.mkDerivation {
+        name = "doom-config";
+        src = ./doom.d;
+        installPhase = ''
+          mkdir -p $out
+          cp -r $src/* $out/
+        '';
+      };
+
       myDoomEmacs = pkgs.emacsWithDoom {
-        doomDir = doom-config;
+        doomDir = doomConfig;
         doomLocalDir = "~/.local/share/doom";
       };
 
