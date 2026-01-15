@@ -118,8 +118,10 @@
 
           # Wrapper for doom sync
           doomSync = pkgs.writeShellScriptBin "doom-sync" ''
+            export DOOMDIR="${doomConfig}"
             export DOOMLOCALDIR="''${DOOMLOCALDIR:-$HOME/.local/share/doom}"
             
+            echo "Using DOOMDIR: $DOOMDIR"
             echo "Using DOOMLOCALDIR: $DOOMLOCALDIR"
             echo "Config is managed by Nix (immutable)"
             echo ""
@@ -144,6 +146,7 @@
               # Main emacs wrapper with fonts and ispell
               makeWrapper ${myDoomEmacs}/bin/emacs $out/bin/emacs \
                 --set FONTCONFIG_FILE ${fontconfigFile} \
+                --set DOOMDIR ${doomConfig} \
                 --prefix XDG_DATA_DIRS : "${bundledNerdFonts}/share" \
                 --prefix PATH : "${pkgs.ispell}/bin" \
                 --run 'export DOOMLOCALDIR="''${DOOMLOCALDIR:-$HOME/.local/share/doom}"'
@@ -151,6 +154,7 @@
               # Wrap emacsclient too
               makeWrapper ${myDoomEmacs}/bin/emacsclient $out/bin/emacsclient \
                 --set FONTCONFIG_FILE ${fontconfigFile} \
+                --set DOOMDIR ${doomConfig} \
                 --prefix XDG_DATA_DIRS : "${bundledNerdFonts}/share" \
                 --prefix PATH : "${pkgs.ispell}/bin" \
                 --run 'export DOOMLOCALDIR="''${DOOMLOCALDIR:-$HOME/.local/share/doom}"'
