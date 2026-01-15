@@ -118,6 +118,7 @@
 
           # Wrapper for doom sync
           doomSync = pkgs.writeShellScriptBin "doom-sync" ''
+            export PATH="${pkgs.git}/bin:${pkgs.ripgrep}/bin:$PATH"
             export DOOMDIR="${doomConfig}"
             export DOOMLOCALDIR="''${DOOMLOCALDIR:-$HOME/.local/share/doom}"
             
