@@ -38,7 +38,7 @@
        vc                ; version-control and Emacs, sitting in a tree
 
        :term
-       ;;eshell            ; the elisp shell that works everywhere
+       eshell            ; the elisp shell that works everywhere
        ;;shell             ; simple shell REPL for Emacs
        ;;term              ; basic terminal emulator for Emacs
        ;;vterm             ; DISABLED on macOS - has wayland deps
@@ -78,6 +78,10 @@
        rest              ; Emacs as a REST client
        (rust +lsp)       ; Fe2O3.unwrap().unwrap().unwrap().unwrap()
        sh                ; she sells {ba,z,fi}sh shells on the C xor
+       nix               ; nix stuff
+       yaml              ; yaml stuff
+       fortran           ; fortran stuff
+       (java +lsp)       ; java stuff
 
        :email
 
