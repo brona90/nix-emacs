@@ -23,21 +23,41 @@
       # Helper to generate attrs for each system
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
       
+      # Check if system is Darwin
+      isDarwin = system: builtins.elem system [ "x86_64-darwin" "aarch64-darwin" ];
+      
       # Get pkgs for a specific system
       pkgsFor = system: import nixpkgs {
         inherit system;
         overlays = [ doom-emacs.overlays.default ];
+        config = {
+          allowUnfree = true;
+          # Allow broken packages on Darwin since some Emacs deps don't build
+          allowBroken = isDarwin system;
+        };
       };
       
       # Build the emacs package for a specific system
       mkEmacsPackage = system:
         let
           pkgs = pkgsFor system;
+          darwinBuild = isDarwin system;
           
-          # Copy doom.d to the Nix store instead of using a flake input
+          # Use different doom configs for Darwin vs Linux
+          # Darwin config excludes modules that depend on wayland/X11
+          doomConfigSrc = if darwinBuild 
+            then ./doom.d-darwin
+            else ./doom.d;
+          
+          # Fallback to main doom.d if darwin-specific doesn't exist
+          doomConfigDir = if darwinBuild && builtins.pathExists ./doom.d-darwin
+            then ./doom.d-darwin
+            else ./doom.d;
+          
+          # Copy doom.d to the Nix store
           doomConfig = pkgs.stdenv.mkDerivation {
             name = "doom-config";
-            src = ./doom.d;
+            src = doomConfigDir;
             installPhase = ''
               mkdir -p $out
               cp -r $src/* $out/
