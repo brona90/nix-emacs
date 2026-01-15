@@ -12,180 +12,215 @@
 
   outputs = { self, nixpkgs, doom-emacs, ... }:
     let
-      system = "x86_64-linux";
-
-      pkgs = import nixpkgs {
+      # Support multiple systems
+      supportedSystems = [
+        "x86_64-linux"
+        "aarch64-linux"
+        "x86_64-darwin"
+        "aarch64-darwin"
+      ];
+      
+      # Helper to generate attrs for each system
+      forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
+      
+      # Get pkgs for a specific system
+      pkgsFor = system: import nixpkgs {
         inherit system;
         overlays = [ doom-emacs.overlays.default ];
       };
+      
+      # Build the emacs package for a specific system
+      mkEmacsPackage = system:
+        let
+          pkgs = pkgsFor system;
+          
+          # Copy doom.d to the Nix store instead of using a flake input
+          doomConfig = pkgs.stdenv.mkDerivation {
+            name = "doom-config";
+            src = ./doom.d;
+            installPhase = ''
+              mkdir -p $out
+              cp -r $src/* $out/
+            '';
+          };
 
-      # Copy doom.d to the Nix store instead of using a flake input
-      doomConfig = pkgs.stdenv.mkDerivation {
-        name = "doom-config";
-        src = ./doom.d;
-        installPhase = ''
-          mkdir -p $out
-          cp -r $src/* $out/
-        '';
-      };
+          myDoomEmacs = pkgs.emacsWithDoom {
+            doomDir = doomConfig;
+            doomLocalDir = "~/.local/share/doom";
+          };
 
-      myDoomEmacs = pkgs.emacsWithDoom {
-        doomDir = doomConfig;
-        doomLocalDir = "~/.local/share/doom";
-      };
+          # Bundle both VictorMono (for text) and Symbols Nerd Font (for icons)
+          victorMono = if pkgs ? nerd-fonts 
+            then pkgs.nerd-fonts.victor-mono
+            else pkgs.nerdfonts.override { fonts = [ "VictorMono" ]; };
 
-      # Bundle both VictorMono (for text) and Symbols Nerd Font (for icons)
-      victorMono = if pkgs ? nerd-fonts 
-        then pkgs.nerd-fonts.victor-mono
-        else pkgs.nerdfonts.override { fonts = [ "VictorMono" ]; };
+          symbolsNerdFont = if pkgs ? nerd-fonts
+            then pkgs.nerd-fonts.symbols-only
+            else pkgs.nerdfonts.override { fonts = [ "NerdFontsSymbolsOnly" ]; };
 
-      symbolsNerdFont = if pkgs ? nerd-fonts
-        then pkgs.nerd-fonts.symbols-only
-        else pkgs.nerdfonts.override { fonts = [ "NerdFontsSymbolsOnly" ]; };
+          # Combine both fonts
+          bundledNerdFonts = pkgs.symlinkJoin {
+            name = "nerd-fonts-combined";
+            paths = [ victorMono symbolsNerdFont ];
+          };
 
-      # Combine both fonts
-      bundledNerdFonts = pkgs.symlinkJoin {
-        name = "nerd-fonts-combined";
-        paths = [ victorMono symbolsNerdFont ];
-      };
+          # Create a fontconfig configuration that points ONLY to our fonts
+          fontconfigFile = pkgs.makeFontsConf {
+            fontDirectories = [ bundledNerdFonts ];
+          };
 
-      # Create a fontconfig configuration that points ONLY to our fonts
-      fontconfigFile = pkgs.makeFontsConf {
-        fontDirectories = [ bundledNerdFonts ];
-      };
+          # Test script to verify fonts in isolation
+          testFonts = pkgs.writeShellScriptBin "test-fonts" ''
+            echo "=== Testing font isolation ==="
+            echo "Font directory: ${bundledNerdFonts}"
+            echo ""
+            echo "Files in font package:"
+            find ${bundledNerdFonts} -name "*.ttf" -o -name "*.otf" 2>/dev/null | head -20
+            echo ""
+            
+            # Create a temporary cache directory
+            TEMP_CACHE=$(mktemp -d)
+            trap "rm -rf $TEMP_CACHE" EXIT
+            
+            echo "=== Font family names (use these in Emacs) ==="
+            env -i \
+              HOME="$TEMP_CACHE" \
+              FONTCONFIG_FILE="${fontconfigFile}" \
+              ${pkgs.fontconfig}/bin/fc-list : family 2>/dev/null | sort -u | grep -i victor
+            
+            echo ""
+            echo "=== Symbols Nerd Font ==="
+            env -i \
+              HOME="$TEMP_CACHE" \
+              FONTCONFIG_FILE="${fontconfigFile}" \
+              ${pkgs.fontconfig}/bin/fc-list : family 2>/dev/null | sort -u | grep -i "symbols\|nerd"
+          '';
 
-      # Test script to verify fonts in isolation
-      testFonts = pkgs.writeShellScriptBin "test-fonts" ''
-        echo "=== Testing font isolation ==="
-        echo "Font directory: ${bundledNerdFonts}"
-        echo ""
-        echo "Files in font package:"
-        find ${bundledNerdFonts} -name "*.ttf" -o -name "*.otf" 2>/dev/null | head -20
-        echo ""
-        
-        # Create a temporary cache directory
-        TEMP_CACHE=$(mktemp -d)
-        trap "rm -rf $TEMP_CACHE" EXIT
-        
-        echo "=== Font family names (use these in Emacs) ==="
-        env -i \
-          HOME="$TEMP_CACHE" \
-          FONTCONFIG_FILE="${fontconfigFile}" \
-          ${pkgs.fontconfig}/bin/fc-list : family 2>/dev/null | sort -u | grep -i victor
-        
-        echo ""
-        echo "=== Symbols Nerd Font ==="
-        env -i \
-          HOME="$TEMP_CACHE" \
-          FONTCONFIG_FILE="${fontconfigFile}" \
-          ${pkgs.fontconfig}/bin/fc-list : family 2>/dev/null | sort -u | grep -i "symbols\|nerd"
-      '';
+          # Wrapper for doom sync that uses writable config
+          doomSync = pkgs.writeShellScriptBin "doom-sync" ''
+            export DOOMDIR="$HOME/.config/doom"
+            export DOOMLOCALDIR="$HOME/.local/share/doom"
+            
+            echo "Using DOOMDIR: $DOOMDIR"
+            echo "Using DOOMLOCALDIR: $DOOMLOCALDIR"
+            echo ""
+            
+            # Use the doom binary from myDoomEmacs
+            exec ${myDoomEmacs}/bin/doom sync "$@"
+          '';
 
-      # Wrapper for doom sync that uses writable config
-      doomSync = pkgs.writeShellScriptBin "doom-sync" ''
-        export DOOMDIR="$HOME/.config/doom"
-        export DOOMLOCALDIR="$HOME/.local/share/doom"
-        
-        echo "Using DOOMDIR: $DOOMDIR"
-        echo "Using DOOMLOCALDIR: $DOOMLOCALDIR"
-        echo ""
-        
-        # Use the doom binary from myDoomEmacs
-        exec ${myDoomEmacs}/bin/doom sync "$@"
-      '';
+          doomWithBundledFonts = pkgs.stdenv.mkDerivation {
+            name = "doom-emacs-with-nerd-fonts";
 
-      doomWithBundledFonts = pkgs.stdenv.mkDerivation {
-        name = "doom-emacs-with-nerd-fonts";
+            nativeBuildInputs = [ pkgs.makeWrapper ];
 
-        nativeBuildInputs = [ pkgs.makeWrapper ];
+            dontUnpack = true;
+            dontBuild = true;
 
-        dontUnpack = true;
-        dontBuild = true;
+            installPhase = ''
+              runHook preInstall
 
-        installPhase = ''
-          runHook preInstall
+              mkdir -p $out/bin
 
-          mkdir -p $out/bin
+              # Main emacs wrapper with fonts, ispell, AND writable DOOMDIR
+              makeWrapper ${myDoomEmacs}/bin/emacs $out/bin/emacs \
+                --set FONTCONFIG_FILE ${fontconfigFile} \
+                --prefix XDG_DATA_DIRS : "${bundledNerdFonts}/share" \
+                --prefix PATH : "${pkgs.ispell}/bin" \
+                --run 'export DOOMDIR="''${DOOMDIR:-$HOME/.config/doom}"' \
+                --run 'export DOOMLOCALDIR="''${DOOMLOCALDIR:-$HOME/.local/share/doom}"'
 
-          # Main emacs wrapper with fonts, ispell, AND writable DOOMDIR
-          makeWrapper ${myDoomEmacs}/bin/emacs $out/bin/emacs \
-            --set FONTCONFIG_FILE ${fontconfigFile} \
-            --prefix XDG_DATA_DIRS : "${bundledNerdFonts}/share" \
-            --prefix PATH : "${pkgs.ispell}/bin" \
-            --run 'export DOOMDIR="''${DOOMDIR:-$HOME/.config/doom}"' \
-            --run 'export DOOMLOCALDIR="''${DOOMLOCALDIR:-$HOME/.local/share/doom}"'
+              # Wrap emacsclient too
+              makeWrapper ${myDoomEmacs}/bin/emacsclient $out/bin/emacsclient \
+                --set FONTCONFIG_FILE ${fontconfigFile} \
+                --prefix XDG_DATA_DIRS : "${bundledNerdFonts}/share" \
+                --prefix PATH : "${pkgs.ispell}/bin" \
+                --run 'export DOOMDIR="''${DOOMDIR:-$HOME/.config/doom}"' \
+                --run 'export DOOMLOCALDIR="''${DOOMLOCALDIR:-$HOME/.local/share/doom}"'
 
-          # Wrap emacsclient too
-          makeWrapper ${myDoomEmacs}/bin/emacsclient $out/bin/emacsclient \
-            --set FONTCONFIG_FILE ${fontconfigFile} \
-            --prefix XDG_DATA_DIRS : "${bundledNerdFonts}/share" \
-            --prefix PATH : "${pkgs.ispell}/bin" \
-            --run 'export DOOMDIR="''${DOOMDIR:-$HOME/.config/doom}"' \
-            --run 'export DOOMLOCALDIR="''${DOOMLOCALDIR:-$HOME/.local/share/doom}"'
+              runHook postInstall
+            '';
 
-          runHook postInstall
-        '';
-
-        meta = {
-          description = "Doom Emacs with bundled VictorMono and Symbols Nerd Font";
-          mainProgram = "emacs";
-        };
-      };
+            meta = {
+              description = "Doom Emacs with bundled VictorMono and Symbols Nerd Font";
+              mainProgram = "emacs";
+            };
+          };
+        in
+        { inherit doomWithBundledFonts myDoomEmacs testFonts doomSync; pkgs = pkgs; };
 
     in
     {
-      packages.${system} = {
-        default = doomWithBundledFonts;
-        doom-with-fonts = doomWithBundledFonts;
-        doom-unwrapped = myDoomEmacs;
-        test-fonts = testFonts;
-        doom-sync = doomSync;
-      };
+      packages = forAllSystems (system:
+        let
+          built = mkEmacsPackage system;
+        in
+        {
+          default = built.doomWithBundledFonts;
+          doom-with-fonts = built.doomWithBundledFonts;
+          doom-unwrapped = built.myDoomEmacs;
+          test-fonts = built.testFonts;
+          doom-sync = built.doomSync;
+        }
+      );
 
-      apps.${system} = {
-        default = {
-          type = "app";
-          program = "${doomWithBundledFonts}/bin/emacs";
-        };
+      apps = forAllSystems (system:
+        let
+          built = mkEmacsPackage system;
+        in
+        {
+          default = {
+            type = "app";
+            program = "${built.doomWithBundledFonts}/bin/emacs";
+          };
 
-        doom-with-fonts = {
-          type = "app";
-          program = "${doomWithBundledFonts}/bin/emacs";
-        };
+          doom-with-fonts = {
+            type = "app";
+            program = "${built.doomWithBundledFonts}/bin/emacs";
+          };
 
-        doom-unwrapped = {
-          type = "app";
-          program = "${myDoomEmacs}/bin/emacs";
-        };
+          doom-unwrapped = {
+            type = "app";
+            program = "${built.myDoomEmacs}/bin/emacs";
+          };
 
-        test-fonts = {
-          type = "app";
-          program = "${testFonts}/bin/test-fonts";
-        };
+          test-fonts = {
+            type = "app";
+            program = "${built.testFonts}/bin/test-fonts";
+          };
 
-        doom-sync = {
-          type = "app";
-          program = "${doomSync}/bin/doom-sync";
-        };
-      };
+          doom-sync = {
+            type = "app";
+            program = "${built.doomSync}/bin/doom-sync";
+          };
+        }
+      );
 
-      devShells.${system}.default = pkgs.mkShell {
-        packages = [ doomWithBundledFonts pkgs.fontconfig pkgs.ispell testFonts doomSync ];
-        shellHook = ''
-          echo "Doom Emacs environment"
-          echo ""
-          echo "Commands:"
-          echo "  emacs      - Launch Emacs with fonts"
-          echo "  doom-sync  - Install/update packages"
-          echo "  test-fonts - Verify fonts"
-          echo ""
-          
-          if [ ! -d "$HOME/.config/doom" ]; then
-            echo "⚠ First time setup:"
-            echo "  mkdir -p ~/.config/doom"
-            echo "  cp doom.d/* ~/.config/doom/"
-          fi
-        '';
-      };
+      devShells = forAllSystems (system:
+        let
+          built = mkEmacsPackage system;
+          pkgs = built.pkgs;
+        in
+        {
+          default = pkgs.mkShell {
+            packages = [ built.doomWithBundledFonts pkgs.fontconfig pkgs.ispell built.testFonts built.doomSync ];
+            shellHook = ''
+              echo "Doom Emacs environment"
+              echo ""
+              echo "Commands:"
+              echo "  emacs      - Launch Emacs with fonts"
+              echo "  doom-sync  - Install/update packages"
+              echo "  test-fonts - Verify fonts"
+              echo ""
+              
+              if [ ! -d "$HOME/.config/doom" ]; then
+                echo "⚠ First time setup:"
+                echo "  mkdir -p ~/.config/doom"
+                echo "  cp doom.d/* ~/.config/doom/"
+              fi
+            '';
+          };
+        }
+      );
     };
 }
