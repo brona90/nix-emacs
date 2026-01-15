@@ -116,13 +116,12 @@
               ${pkgs.fontconfig}/bin/fc-list : family 2>/dev/null | sort -u | grep -i "symbols\|nerd"
           '';
 
-          # Wrapper for doom sync that uses writable config
+          # Wrapper for doom sync
           doomSync = pkgs.writeShellScriptBin "doom-sync" ''
-            export DOOMDIR="$HOME/.config/doom"
-            export DOOMLOCALDIR="$HOME/.local/share/doom"
+            export DOOMLOCALDIR="''${DOOMLOCALDIR:-$HOME/.local/share/doom}"
             
-            echo "Using DOOMDIR: $DOOMDIR"
             echo "Using DOOMLOCALDIR: $DOOMLOCALDIR"
+            echo "Config is managed by Nix (immutable)"
             echo ""
             
             # Use the doom binary from myDoomEmacs
@@ -142,12 +141,11 @@
 
               mkdir -p $out/bin
 
-              # Main emacs wrapper with fonts, ispell, AND writable DOOMDIR
+              # Main emacs wrapper with fonts and ispell
               makeWrapper ${myDoomEmacs}/bin/emacs $out/bin/emacs \
                 --set FONTCONFIG_FILE ${fontconfigFile} \
                 --prefix XDG_DATA_DIRS : "${bundledNerdFonts}/share" \
                 --prefix PATH : "${pkgs.ispell}/bin" \
-                --run 'export DOOMDIR="''${DOOMDIR:-$HOME/.config/doom}"' \
                 --run 'export DOOMLOCALDIR="''${DOOMLOCALDIR:-$HOME/.local/share/doom}"'
 
               # Wrap emacsclient too
@@ -155,7 +153,6 @@
                 --set FONTCONFIG_FILE ${fontconfigFile} \
                 --prefix XDG_DATA_DIRS : "${bundledNerdFonts}/share" \
                 --prefix PATH : "${pkgs.ispell}/bin" \
-                --run 'export DOOMDIR="''${DOOMDIR:-$HOME/.config/doom}"' \
                 --run 'export DOOMLOCALDIR="''${DOOMLOCALDIR:-$HOME/.local/share/doom}"'
 
               runHook postInstall
@@ -192,26 +189,41 @@
           default = {
             type = "app";
             program = "${built.doomWithBundledFonts}/bin/emacs";
+            meta = {
+              description = "Doom Emacs with bundled fonts";
+            };
           };
 
           doom-with-fonts = {
             type = "app";
             program = "${built.doomWithBundledFonts}/bin/emacs";
+            meta = {
+              description = "Doom Emacs with bundled fonts";
+            };
           };
 
           doom-unwrapped = {
             type = "app";
             program = "${built.myDoomEmacs}/bin/emacs";
+            meta = {
+              description = "Doom Emacs without font wrapper";
+            };
           };
 
           test-fonts = {
             type = "app";
             program = "${built.testFonts}/bin/test-fonts";
+            meta = {
+              description = "Test font configuration";
+            };
           };
 
           doom-sync = {
             type = "app";
             program = "${built.doomSync}/bin/doom-sync";
+            meta = {
+              description = "Sync Doom Emacs packages";
+            };
           };
         }
       );
@@ -225,19 +237,17 @@
           default = pkgs.mkShell {
             packages = [ built.doomWithBundledFonts pkgs.fontconfig pkgs.ispell built.testFonts built.doomSync ];
             shellHook = ''
-              echo "Doom Emacs environment"
+              echo "Doom Emacs environment (immutable config)"
               echo ""
               echo "Commands:"
               echo "  emacs      - Launch Emacs with fonts"
               echo "  doom-sync  - Install/update packages"
               echo "  test-fonts - Verify fonts"
               echo ""
-              
-              if [ ! -d "$HOME/.config/doom" ]; then
-                echo "⚠ First time setup:"
-                echo "  mkdir -p ~/.config/doom"
-                echo "  cp doom.d/* ~/.config/doom/"
-              fi
+              echo "Config is managed by Nix. To change config:"
+              echo "  1. Edit doom.d/ or doom.d-darwin/"
+              echo "  2. nix build && doom-sync"
+              echo "  3. Commit and push"
             '';
           };
         }
