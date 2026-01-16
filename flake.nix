@@ -66,7 +66,7 @@
 
           myDoomEmacs = pkgs.emacsWithDoom {
             doomDir = doomConfig;
-            doomLocalDir = "~/.local/share/doom";
+            doomLocalDir = "~/.local/share/nix-doom";
           };
 
           # Bundle both VictorMono (for text) and Symbols Nerd Font (for icons)
@@ -117,13 +117,10 @@
           '';
 
           # Wrapper for doom sync
+          # Note: Don't override DOOMDIR/DOOMLOCALDIR - upstream sets them correctly
           doomSync = pkgs.writeShellScriptBin "doom-sync" ''
             export PATH="${pkgs.git}/bin:${pkgs.ripgrep}/bin:$PATH"
-            export DOOMDIR="${doomConfig}"
-            export DOOMLOCALDIR="''${DOOMLOCALDIR:-$HOME/.local/share/doom}"
             
-            echo "Using DOOMDIR: $DOOMDIR"
-            echo "Using DOOMLOCALDIR: $DOOMLOCALDIR"
             echo "Config is managed by Nix (immutable)"
             echo ""
             
@@ -145,20 +142,17 @@
               mkdir -p $out/bin
 
               # Main emacs wrapper with fonts and ispell
+              # Note: Do NOT override DOOMDIR - the upstream emacs-with-doom sets it correctly
               makeWrapper ${myDoomEmacs}/bin/emacs $out/bin/emacs \
                 --set FONTCONFIG_FILE ${fontconfigFile} \
-                --set DOOMDIR ${doomConfig} \
                 --prefix XDG_DATA_DIRS : "${bundledNerdFonts}/share" \
-                --prefix PATH : "${pkgs.ispell}/bin" \
-                --run 'export DOOMLOCALDIR="''${DOOMLOCALDIR:-$HOME/.local/share/doom}"'
+                --prefix PATH : "${pkgs.ispell}/bin"
 
               # Wrap emacsclient too
               makeWrapper ${myDoomEmacs}/bin/emacsclient $out/bin/emacsclient \
                 --set FONTCONFIG_FILE ${fontconfigFile} \
-                --set DOOMDIR ${doomConfig} \
                 --prefix XDG_DATA_DIRS : "${bundledNerdFonts}/share" \
-                --prefix PATH : "${pkgs.ispell}/bin" \
-                --run 'export DOOMLOCALDIR="''${DOOMLOCALDIR:-$HOME/.local/share/doom}"'
+                --prefix PATH : "${pkgs.ispell}/bin"
 
               runHook postInstall
             '';
