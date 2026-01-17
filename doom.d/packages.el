@@ -1,6 +1,9 @@
 ;; -*- no-byte-compile: t; -*-
 
 ;;; Development
+(package! nix-ts-mode)
+(package! nixfmt)
+(package! ob-nix)
 (package! nix-mode)              ; Nix language support
 (package! magit)                 ; Git porcelain (usually already in Doom)
 (package! git-gutter)            ; Show git diff in gutter
