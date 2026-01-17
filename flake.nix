@@ -10,7 +10,13 @@
     };
   };
 
-  outputs = { self, nixpkgs, doom-emacs, ... }:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      doom-emacs,
+      ...
+    }:
     let
       # Support multiple systems
       supportedSystems = [
@@ -19,41 +25,46 @@
         "x86_64-darwin"
         "aarch64-darwin"
       ];
-      
+
       # Helper to generate attrs for each system
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
-      
+
       # Check if system is Darwin
-      isDarwin = system: builtins.elem system [ "x86_64-darwin" "aarch64-darwin" ];
-      
+      isDarwin =
+        system:
+        builtins.elem system [
+          "x86_64-darwin"
+          "aarch64-darwin"
+        ];
+
       # Get pkgs for a specific system
-      pkgsFor = system: import nixpkgs {
-        inherit system;
-        overlays = [ doom-emacs.overlays.default ];
-        config = {
-          allowUnfree = true;
-          # Allow broken packages on Darwin since some Emacs deps don't build
-          allowBroken = isDarwin system;
+      pkgsFor =
+        system:
+        import nixpkgs {
+          inherit system;
+          overlays = [ doom-emacs.overlays.default ];
+          config = {
+            allowUnfree = true;
+            # Allow broken packages on Darwin since some Emacs deps don't build
+            allowBroken = isDarwin system;
+          };
         };
-      };
-      
+
       # Build the emacs package for a specific system
-      mkEmacsPackage = system:
+      mkEmacsPackage =
+        system:
         let
           pkgs = pkgsFor system;
           darwinBuild = isDarwin system;
-          
+
           # Use different doom configs for Darwin vs Linux
           # Darwin config excludes modules that depend on wayland/X11
-          doomConfigSrc = if darwinBuild 
-            then ./doom.d-darwin
-            else ./doom.d;
-          
+          doomConfigSrc = if darwinBuild then ./doom.d-darwin else ./doom.d;
+
           # Fallback to main doom.d if darwin-specific doesn't exist
-          doomConfigDir = if darwinBuild && builtins.pathExists ./doom.d-darwin
-            then ./doom.d-darwin
-            else ./doom.d;
-          
+          doomConfigDir =
+            if darwinBuild && builtins.pathExists ./doom.d-darwin then ./doom.d-darwin else ./doom.d;
+
           # Copy doom.d to the Nix store
           doomConfig = pkgs.stdenv.mkDerivation {
             name = "doom-config";
@@ -70,18 +81,25 @@
           };
 
           # Bundle both VictorMono (for text) and Symbols Nerd Font (for icons)
-          victorMono = if pkgs ? nerd-fonts 
-            then pkgs.nerd-fonts.victor-mono
-            else pkgs.nerdfonts.override { fonts = [ "VictorMono" ]; };
+          victorMono =
+            if pkgs ? nerd-fonts then
+              pkgs.nerd-fonts.victor-mono
+            else
+              pkgs.nerdfonts.override { fonts = [ "VictorMono" ]; };
 
-          symbolsNerdFont = if pkgs ? nerd-fonts
-            then pkgs.nerd-fonts.symbols-only
-            else pkgs.nerdfonts.override { fonts = [ "NerdFontsSymbolsOnly" ]; };
+          symbolsNerdFont =
+            if pkgs ? nerd-fonts then
+              pkgs.nerd-fonts.symbols-only
+            else
+              pkgs.nerdfonts.override { fonts = [ "NerdFontsSymbolsOnly" ]; };
 
           # Combine both fonts
           bundledNerdFonts = pkgs.symlinkJoin {
             name = "nerd-fonts-combined";
-            paths = [ victorMono symbolsNerdFont ];
+            paths = [
+              victorMono
+              symbolsNerdFont
+            ];
           };
 
           # Create a fontconfig configuration that points ONLY to our fonts
@@ -97,17 +115,17 @@
             echo "Files in font package:"
             find ${bundledNerdFonts} -name "*.ttf" -o -name "*.otf" 2>/dev/null | head -20
             echo ""
-            
+
             # Create a temporary cache directory
             TEMP_CACHE=$(mktemp -d)
             trap "rm -rf $TEMP_CACHE" EXIT
-            
+
             echo "=== Font family names (use these in Emacs) ==="
             env -i \
               HOME="$TEMP_CACHE" \
               FONTCONFIG_FILE="${fontconfigFile}" \
               ${pkgs.fontconfig}/bin/fc-list : family 2>/dev/null | sort -u | grep -i victor
-            
+
             echo ""
             echo "=== Symbols Nerd Font ==="
             env -i \
@@ -120,10 +138,10 @@
           # Note: Don't override DOOMDIR/DOOMLOCALDIR - upstream sets them correctly
           doomSync = pkgs.writeShellScriptBin "doom-sync" ''
             export PATH="${pkgs.git}/bin:${pkgs.ripgrep}/bin:$PATH"
-            
+
             echo "Config is managed by Nix (immutable)"
             echo ""
-            
+
             # Use the doom binary from myDoomEmacs
             exec ${myDoomEmacs}/bin/doom sync "$@"
           '';
@@ -163,11 +181,20 @@
             };
           };
         in
-        { inherit doomWithBundledFonts myDoomEmacs testFonts doomSync; pkgs = pkgs; };
+        {
+          inherit
+            doomWithBundledFonts
+            myDoomEmacs
+            testFonts
+            doomSync
+            ;
+          pkgs = pkgs;
+        };
 
     in
     {
-      packages = forAllSystems (system:
+      packages = forAllSystems (
+        system:
         let
           built = mkEmacsPackage system;
         in
@@ -180,7 +207,8 @@
         }
       );
 
-      apps = forAllSystems (system:
+      apps = forAllSystems (
+        system:
         let
           built = mkEmacsPackage system;
         in
@@ -227,14 +255,21 @@
         }
       );
 
-      devShells = forAllSystems (system:
+      devShells = forAllSystems (
+        system:
         let
           built = mkEmacsPackage system;
           pkgs = built.pkgs;
         in
         {
           default = pkgs.mkShell {
-            packages = [ built.doomWithBundledFonts pkgs.fontconfig pkgs.ispell built.testFonts built.doomSync ];
+            packages = [
+              built.doomWithBundledFonts
+              pkgs.fontconfig
+              pkgs.ispell
+              built.testFonts
+              built.doomSync
+            ];
             shellHook = ''
               echo "Doom Emacs environment (immutable config)"
               echo ""
@@ -251,5 +286,7 @@
           };
         }
       );
+
+      formatter = forAllSystems (system: (pkgsFor system).nixfmt);
     };
 }
